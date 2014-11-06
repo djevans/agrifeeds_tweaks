@@ -1,0 +1,364 @@
+<?php
+
+/**
+ * Implements hook_install().
+ */
+function sparqly_tweaks_install() {
+
+  // Set this module's weight to one more than SPARQL Views'.
+  // @see https://www.drupal.org/node/110238
+
+  $weight = db_select('system', 's')
+    ->fields('s', array('weight'))
+    ->condition('name', 'sparql_views', '=')
+    ->execute()
+    ->fetchField();
+
+  db_update('system')
+    ->fields(array('weight' => $weight + 1))
+    ->condition('name', 'sparqly_tweaks', '=')
+    ->execute();
+
+  sparqly_tweaks_register_endpoints(); // OK
+  sparqly_tweaks_register_resource_types();
+
+  sparqly_tweaks_create_fields();
+  sparqly_tweaks_create_field_instances();
+
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function sparqly_tweaks_uninstall() {
+
+  sparqly_tweaks_delete_resource_types();
+
+  foreach (sparqly_tweaks_get_field_instances() as $bundle_name => $instances) {
+    foreach ($instances as $instance) {
+      field_delete_instance($instance);
+    }
+  }
+
+}
+
+function sparqly_tweaks_get_endpoints() {
+
+  $endpoints = array();
+  $endpoints['ciard-ring.dev'] = (object) array(
+    'title' => 'CIARD RING SPARQL Endpoint',
+    'uri'   => 'http://ciard-ring.dev/sparql1',
+  );
+
+  return $endpoints;
+
+}
+
+function sparqly_tweaks_register_endpoints() {
+  sparql_views_register_endpoints(sparqly_tweaks_get_endpoints());
+}
+
+function sparqly_tweaks_get_resource_types() {
+
+  $t = get_t();
+
+  $resource_types = array();
+  $resource_types['dataset'] = array(
+    'name' => 'dataset',
+    'label' => $t('Dataset'),
+    'base' => 'sparql_views_resource',
+    'description' => $t('dcat:Dataset'),
+    'endpoints' => array(
+      'http://ciard-ring.dev/sparql1' => TRUE,
+    ),
+  );
+  $resource_types['distribution'] = array(
+    'name' => 'distribution',
+    'label' => $t('Distribution'),
+    'base' => 'sparql_views_resource',
+    'description' => $t('dcat:Distribution'),
+    'endpoints' => array(
+      'http://ciard-ring.dev/sparql1' => TRUE,
+    ),
+  );
+  $resource_types['organization'] = array(
+    'name' => 'organization',
+    'label' => $t('Organization'),
+    'base' => 'sparql_views_resource',
+    'description' => $t('foaf:Organization'),
+    'endpoints' => array(
+      'http://ciard-ring.dev/sparql1' => TRUE,
+    ),
+  );
+  $resource_types['linguistic_system'] = array(
+    'name' => 'linguistic_system',
+    'label' => $t('Linguistic System'),
+    'base' => 'sparql_views_resource',
+    'description' => $t('dc:LinguisticSystem'),
+    'endpoints' => array(
+      'http://ciard-ring.dev/sparql1' => TRUE,
+    ),
+  );
+  $resource_types['standard'] = array(
+    'name' => 'standard',
+    'label' => $t('Standard'),
+    'base' => 'sparql_views_resource',
+    'description' => $t('dc:Standard'),
+    'endpoints' => array(
+      'http://ciard-ring.dev/sparql1' => TRUE,
+    ),
+  );
+  $resource_types['concept'] = array(
+    'name' => 'concept',
+    'label' => $t('Concept'),
+    'base' => 'sparql_views_resource',
+    'description' => $t('skos:Concept'),
+    'endpoints' => array(
+      'http://ciard-ring.dev/sparql1' => TRUE,
+    ),
+  );
+  $resource_types['concept_scheme'] = array(
+    'name' => 'concept_scheme',
+    'label' => $t('Concept Scheme'),
+    'base' => 'sparql_views_resource',
+    'description' => $t('skos:ConceptScheme'),
+    'endpoints' => array(
+      'http://ciard-ring.dev/sparql1' => TRUE,
+    ),
+  );
+  $resource_types['location'] = array(
+    'name' => 'location',
+    'label' => $t('Location'),
+    'base' => 'sparql_views_resource',
+    'description' => $t('dc:Location'),
+    'endpoints' => array(
+      'http://ciard-ring.dev/sparql1' => TRUE,
+    ),
+  );
+  $resource_types['person'] = array(
+    'name' => 'person',
+    'label' => $t('Person'),
+    'base' => 'sparql_views_resource',
+    'description' => $t('foaf:Person'),
+    'endpoints' => array(
+      'http://ciard-ring.dev/sparql1' => TRUE,
+    ),
+  );
+
+  return $resource_types;
+
+}
+
+function sparqly_tweaks_register_resource_types() {
+  foreach (sparqly_tweaks_get_resource_types() as $key => $resource_type) {
+    if (!sparql_views_resource_type_save((object) $resource_type)) {
+      drupal_set_message(t('The resource type %type could not be saved.', array(
+        '%type' => $key
+      )));
+    };
+  }
+}
+
+function sparqly_tweaks_delete_resource_types() {
+  foreach (array_keys(sparqly_tweaks_get_resource_types()) as $resource_type) {
+    sparql_views_resource_type_delete($resource_type);
+  }
+}
+
+function sparqly_tweaks_get_fields() {
+
+  $adms = array(
+    array(
+      'field_name'  => 'adms_representation_technique',
+      'type'        => 'sparql_views_related_resource',
+    ),
+  );
+
+  $dc = array(
+    array(
+      'field_name'  => 'dc_title',
+      'type'        => 'text',
+    ),
+    array(
+      'field_name'  => 'dc_publisher',
+      'type'        => 'sparql_views_related_resource',
+    ),
+    array(
+      'field_name'  => 'dc_format',
+      'type'        => 'text',
+    ),
+    array(
+      'field_name'  => 'dc_conforms_to',
+      'type'        => 'sparql_views_related_resource',
+    )
+  );
+
+  $dcat = array(
+    array(
+      'field_name'  => 'dcat_access_url',
+      'type'        => 'text',
+    ),
+    array(
+      'field_name'  => 'dcat_distribution',
+      'type'        => 'sparql_views_related_resource',
+    ),
+    array(
+      'field_name'  => 'dcat_theme',
+      'type'        => 'sparql_views_related_resource',
+    ),
+  );
+
+  $doap = array(
+    array(
+      'field_name'  => 'doap_maintainer',
+      'type'        => 'text',
+    )
+  );
+
+  $foaf = array(
+    array(
+      'field_name'  => 'foaf_name',
+      'type'        => 'text',
+    )
+  );
+
+  $skos = array(
+    array(
+      'field_name'  => 'skos_pref_label',
+      'type'        => 'text',
+    ),
+    array(
+      'field_name'  => 'skos_in_scheme',
+      'type'        => 'sparql_views_related_resource',
+    ),
+  );
+
+  $fields = array_merge($adms, $dc, $dcat, $doap, $foaf, $skos);
+  return $fields;
+
+}
+
+function sparqly_tweaks_create_fields() {
+  foreach (sparqly_tweaks_get_fields() as $field) {
+    try {
+      field_create_field($field);
+    } catch (Exception $e) {}
+  }
+}
+
+function sparqly_tweaks_get_field_instances() {
+
+  $t = get_t();
+
+  $instances = array();
+
+  $instances['dataset'] = array(
+    array(
+      'field_name'  => 'dc_title',
+      'label'       => $t('Title'),
+    ),
+    array(
+      'field_name'  => 'dc_publisher',
+      'label'       => $t('Publisher'),
+    ),
+    array(
+      'field_name'  => 'dcat_theme',
+      'label'       => $t('Theme'),
+    ),
+    array(
+      'field_name'  => 'doap_maintainer',
+      'label'       => $t('Maintainer'),
+    ),
+    array(
+      'field_name'  => 'dcat_distribution',
+      'label'       => $t('Distribution'),
+    ),
+  );
+
+  $instances['distribution'] = array(
+    array(
+      'field_name'  => 'dc_format',
+      'label'       => $t('Format'),
+    ),
+    array(
+      'field_name'  => 'dc_conforms_to',
+      'label'       => $t('Conforms To'),
+    ),
+    array(
+      'field_name'  => 'dcat_access_url',
+      'label'       => $t('Access URL'),
+    ),
+    array(
+      'field_name'  => 'adms_representation_technique',
+      'label'       => $t('Representation Technique'),
+    ),
+  );
+
+  $instances['linguistic_system'] = array(
+    array(
+      'field_name'  => 'skos_pref_label',
+      'label'       => $t('Label'),
+    ),
+  );
+
+  $instances['organization'] = array(
+    array(
+      'field_name'  => 'foaf_name',
+      'label'       => $t('Name'),
+    ),
+  );
+
+  $instances['standard'] = array(
+    array(
+      'field_name'  => 'skos_pref_label',
+      'label'       => $t('Label'),
+    ),
+  );
+
+  $instances['concept'] = array(
+    array(
+      'field_name'  => 'skos_pref_label',
+      'label'       => $t('Label'),
+    ),
+    array(
+      'field_name'  => 'skos_in_scheme',
+      'label'       => $t('Concept Scheme'),
+    ),
+  );
+
+  $instances['concept_scheme'] = array(
+    array(
+      'field_name'  => 'dc_title',
+      'label'       => $t('Title'),
+    )
+  );
+
+  $instances['location'] = array(
+    array(
+      'field_name'  => 'skos_pref_label',
+      'label'       => $t('Label'),
+    ),
+  );
+
+  $instances['person'] = array(
+    array(
+      'field_name'  => 'foaf_name',
+      'label'       => $t('Name'),
+    ),
+  );
+
+  return $instances;
+
+}
+
+function sparqly_tweaks_create_field_instances() {
+  foreach (sparqly_tweaks_get_field_instances() as $bundle_name => $instances) {
+    foreach ($instances as $instance) {
+      $instance['bundle'] = $bundle_name;
+      $instance['entity_type'] = 'sparql_views_resource';
+      try {
+        field_create_instance($instance);
+      } catch (Exception $e) {}
+    }
+  }
+}

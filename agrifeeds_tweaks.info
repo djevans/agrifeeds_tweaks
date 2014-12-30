@@ -1,0 +1,9 @@
+name = SPARQLy Tweaks
+description = Tweaks for the SPARQLy site.
+dependencies[] = sparql_views
+dependencies[] = sparql_views_related_resource
+core = 7.x
+files[] = handlers/agrifeeds_tweaks_handler_filter_is_uri.inc
+files[] = handlers/agrifeeds_tweaks_handler_filter_is_of_datatype.inc
+files[] = handlers/agrifeeds_tweaks_handler_filter_not_bound.inc
+files[] = handlers/agrifeeds_tweaks_handler_filter_value.inc

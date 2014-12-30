@@ -1,0 +1,265 @@
+<?php
+
+/**
+ *  Implements hook_views_api().
+ */
+function agrifeeds_tweaks_views_api() {
+  $module_path = drupal_get_path('module', 'agrifeeds_tweaks');
+  $base_path = $module_path . '/views';
+  $template_path = $base_path . '/templates';
+  return array(
+    'api' => 3,
+    'path' => $base_path,
+    'template path' => $template_path,
+  );
+}
+
+/**
+ *  Implements hook_rdf_mapping().
+ */
+function agrifeeds_tweaks_rdf_mapping() {
+  $mappings = array();
+  $mappings['dataset'] = array(
+    'type' => 'sparql_views_resource',
+    'bundle' => 'dataset',
+    'mapping' => array(
+      'rdftype' => array('dcat:Dataset'),
+      'dc_title' => array(
+        'predicates' => array('dc:title'),
+      ),
+      'dc_description' => array(
+        'predicates' => array('dc:description'),
+      ),
+      'dc_publisher' => array(
+        'predicates' => array('dc:publisher'),
+        'type' => 'rel',
+      ),
+      'dcat_theme' => array(
+        'predicates' => array('dcat:theme'),
+        'type' => 'rel',
+      ),
+      'doap_maintainer' => array(
+        'predicates' => array('doap:maintainer'),
+        'type' => 'rel',
+      ),
+      'dcat_distribution' => array(
+        'predicates' => array('dcat:distribution'),
+        'type' => 'rel',
+      ),
+      'dc_language' => array(
+        'predicates' => array('dc:language'),
+        'type' => 'rel',
+      ),
+      'dc_spatial' => array(
+        'predicates' => array('dc:spatial'),
+        'type' => 'rel',
+      ),
+      'dc_modified' => array(
+        'predicates' => array('dc:modified'),
+      ),
+    ),
+  );
+  $mappings['distribution'] = array(
+    'type' => 'sparql_views_resource',
+    'bundle' => 'distribution',
+    'mapping' => array(
+      'rdftype' => array('dcat:Distribution'),
+      // @TODO remove dc:format
+      'dc_format' => array(
+        'predicates' => array('dc:format'),
+        'type' => 'rel',
+      ),
+      'dcat_access_url' => array(
+        'predicates' => array('dcat:accessURL'),
+      ),
+      'dc_conforms_to' => array(
+        'predicates' => array('dc:conformsTo'),
+        'type' => 'rel',
+      ),
+      'adms_representation_technique' => array(
+        'predicates' => array('adms:representationTechnique'),
+        'type' => 'rel',
+      ),
+    ),
+  );
+  $mappings['organization'] = array(
+    'type' => 'sparql_views_resource',
+    'bundle' => 'organization',
+    'mapping' => array(
+      'rdftype' => array('foaf:Organization'),
+      'foaf_name' => array(
+        'predicates' => array('foaf:name'),
+      ),
+    ),
+  );
+  $mappings['linguistic_system'] = array(
+    'type' => 'sparql_views_resource',
+    'bundle' => 'linguistic_system',
+    'mapping' => array(
+      'rdftype' => array('dc:LinguisticSystem'),
+      'skos_pref_label' => array(
+        'predicates' => array('skos:prefLabel'),
+      ),
+    ),
+  );
+  $mappings['standard'] = array(
+    'type' => 'sparql_views_resource',
+    'bundle' => 'standard',
+    'mapping' => array(
+      'rdftype' => array('dc:Standard'),
+      'skos_pref_label' => array(
+        'predicates' => array('skos:prefLabel'),
+      ),
+    ),
+  );
+  $mappings['concept'] = array(
+    'type' => 'sparql_views_resource',
+    'bundle' => 'concept',
+    'mapping' => array(
+      'rdftype' => array('skos:Concept'),
+      'skos_pref_label' => array(
+        'predicates' => array('skos:prefLabel'),
+      ),
+      'skos_in_scheme' => array(
+        'predicates' => array('skos:inScheme'),
+        'type' => 'rel',
+      ),
+    ),
+  );
+  $mappings['concept_scheme'] = array(
+    'type' => 'sparql_views_resource',
+    'bundle' => 'concept_scheme',
+    'mapping' => array(
+      'rdftype' => array('skos:ConceptScheme'),
+      'dc_title' => array(
+        'predicates' => array('dc:title'),
+      ),
+    ),
+  );
+  $mappings['location'] = array(
+    'type' => 'sparql_views_resource',
+    'bundle' => 'location',
+    'mapping' => array(
+      'rdftype' => array('dc:Location'),
+      'skos_pref_label' => array(
+        'predicates' => array('skos:prefLabel'),
+      ),
+    ),
+  );
+  $mappings['person'] = array(
+    'type' => 'sparql_views_resource',
+    'bundle' => 'person',
+    'mapping' => array(
+      'rdftype' => array('foaf:Person'),
+      'foaf_name' => array(
+        'predicates' => array('foaf:name'),
+      ),
+    ),
+  );
+
+  return $mappings;
+}
+
+/**
+ *  Implements hook_rdf_namespaces().
+ */
+function agrifeeds_tweaks_rdf_namespaces() {
+  $namespaces = array(
+    'adms' => 'http://www.w3.org/ns/adms#',
+    'dcat' => 'http://www.w3.org/ns/dcat#',
+    'dctype' => 'http://purl.org/dc/dcmitype/',
+    'doap' => 'http://usefulinc.com/ns/doap#',
+  );
+  return $namespaces;
+}
+
+/**
+ *  Implements hook_ctools_plugin_directory().
+ */
+function agrifeeds_tweaks_ctools_plugin_directory($owner, $plugin_type) {
+  if ('feeds_tamper' == $owner && 'plugins' == $plugin_type) {
+    return 'feeds_tamper/plugins';
+  }
+}
+
+/**
+ *  Implements hook_views_pre_execute().
+ */
+function agrifeeds_tweaks_views_pre_execute(&$view) {
+  if ('ciard_ring_datasets' == $view->name) {
+    // Move the 'dataset_dcat_distribution' key to the end of the query's
+    // $triples array. This helps us to consolidate the results work correctly.
+    $keys = array_keys($view->query->triples);
+    $offset = array_search('dataset_dcat_distribution', $keys);
+    if ($offset !== FALSE) {
+      // If the key exists, remove and reinsert in at the end of the array.
+      $distro_triples = array_splice($view->query->triples, $offset, 1);
+      $view->query->triples = array_merge($view->query->triples, $distro_triples);
+    }
+  }
+}
+
+/**
+ *  Implements hook_views_post_execute().
+ */
+function agrifeeds_tweaks_views_post_execute(&$view) {
+
+  if ('ciard_ring_datasets' == $view->name) {
+    // The ARC2 store seems to have a problem where it incorrectly binds
+    // values to optional variables, so instead of using OPTIONAL and !BOUND()
+    // to achieve negation in SPARQL 1.0, we have to filter the consolidated
+    // results.
+    if ('news_export' == $view->current_display) {
+      $view->result = array_filter($view->result, 'agrifeeds_tweaks_no_events_or_jobs');
+    }
+  }
+
+}
+
+function agrifeeds_tweaks_no_events_or_jobs($element) {
+  $application_profiles = array(
+    'http://ring.ciard.net/node/19239', // The Ag-Events Application Profile
+    'http://ring.ciard.net/node/19240', // The Ag-Job Application Profile
+  );
+  $field_alias = 'distribution_dc_conforms_to';
+  // Return TRUE if the dataset conforms to neither of the above profiles.
+  $matches = array_intersect($application_profiles, $element[$field_alias]);
+  return empty($matches);
+}
+
+/**
+ *  Implements hook_preprocess_HOOK().
+ */
+function agrifeeds_tweaks_preprocess_views_data_export_xml_body(&$vars) {
+
+  // We want each consolidated field with multiple values to appear in the XML
+  // as multiple instances of the same tag.
+  // SPARQL Views gives us an unordered list by default - here we use the
+  // DOMDocument class to extract the <li> elements,  where appropriate.
+  // In any case, all field values will be returned as arrays, to be output by
+  // the 'views-data-export-xml-body--ciard-ring-datasets' template.
+
+  foreach ($vars['themed_rows'] as $num => $row) {
+    foreach ($row as $field => $content) {
+      $dom = new DOMDocument();
+      $dom->loadXML($content);
+      $errors = libxml_get_errors();
+      if (empty($errors)) {
+        $items = $dom->getElementsByTagName('li');
+        if ($items->length > 0) {
+          $node_values = array();
+          foreach ($items as $item) {
+            $node_values[] = $item->nodeValue;
+          }
+          $vars['themed_rows'][$num][$field] = $node_values;
+        }
+        else {
+          $vars['themed_rows'][$num][$field] = array($content);
+        }
+      }
+      else {
+        $vars['themed_rows'][$num][$field] = array($content);
+      }
+    }
+  }
+}

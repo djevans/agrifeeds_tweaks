@@ -1,6 +1,0 @@
-name = SPARQLy Tweaks
-description = Tweaks for the SPARQLy site.
-dependencies[] = sparql_views
-dependencies[] = sparql_views_related_resource
-core = 7.x
-files[] = plugins/sparql_views_plugin_query_sparql_vbo.inc
